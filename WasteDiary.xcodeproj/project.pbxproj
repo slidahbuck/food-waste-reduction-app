@@ -20,6 +20,15 @@
 		A10000110000000000000011 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000110000000000000011 /* HistoryView.swift */; };
 		A10000120000000000000012 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000120000000000000012 /* CameraManager.swift */; };
 		A10000130000000000000013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000130000000000000013 /* Assets.xcassets */; };
+		C22414F52FAA9F2A00C67688 /* GemmaInferenceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C22414F42FAA9F2A00C67688 /* GemmaInferenceService.swift */; };
+		A10000150000000000000015 /* APIKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000150000000000000015 /* APIKeys.swift */; };
+		A10000160000000000000016 /* ScanMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000160000000000000016 /* ScanMode.swift */; };
+		A10000170000000000000017 /* ReceiptResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000170000000000000017 /* ReceiptResult.swift */; };
+		A10000180000000000000018 /* ScanPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000180000000000000018 /* ScanPickerView.swift */; };
+		A10000190000000000000019 /* ConfirmReceiptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000190000000000000019 /* ConfirmReceiptView.swift */; };
+		A10000200000000000000020 /* ReceiptEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000200000000000000020 /* ReceiptEntry.swift */; };
+		A10000210000000000000021 /* ReceiptHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000210000000000000021 /* ReceiptHistoryView.swift */; };
+		A10000220000000000000022 /* SuggestionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000220000000000000022 /* SuggestionsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,6 +46,15 @@
 		A20000120000000000000012 /* CameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManager.swift; sourceTree = "<group>"; };
 		A20000130000000000000013 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A30000010000000000000001 /* WasteDiary.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WasteDiary.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C22414F42FAA9F2A00C67688 /* GemmaInferenceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/GemmaInferenceService.swift; sourceTree = "<group>"; };
+		A20000150000000000000015 /* APIKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/APIKeys.swift; sourceTree = "<group>"; };
+		A20000160000000000000016 /* ScanMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanMode.swift; sourceTree = "<group>"; };
+		A20000170000000000000017 /* ReceiptResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptResult.swift; sourceTree = "<group>"; };
+		A20000180000000000000018 /* ScanPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanPickerView.swift; sourceTree = "<group>"; };
+		A20000190000000000000019 /* ConfirmReceiptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmReceiptView.swift; sourceTree = "<group>"; };
+		A20000200000000000000020 /* ReceiptEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptEntry.swift; sourceTree = "<group>"; };
+		A20000210000000000000021 /* ReceiptHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptHistoryView.swift; sourceTree = "<group>"; };
+		A20000220000000000000022 /* SuggestionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestionsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -61,6 +79,8 @@
 		A50000020000000000000002 /* WasteDiary */ = {
 			isa = PBXGroup;
 			children = (
+				C22414F42FAA9F2A00C67688 /* GemmaInferenceService.swift */,
+				A20000150000000000000015 /* APIKeys.swift */,
 				A20000010000000000000001 /* WasteDiaryApp.swift */,
 				A50000030000000000000003 /* Models */,
 				A50000040000000000000004 /* ViewModels */,
@@ -78,6 +98,9 @@
 				A20000030000000000000003 /* WasteReason.swift */,
 				A20000040000000000000004 /* FoodCategory.swift */,
 				A20000050000000000000005 /* GemmaResult.swift */,
+				A20000160000000000000016 /* ScanMode.swift */,
+				A20000170000000000000017 /* ReceiptResult.swift */,
+				A20000200000000000000020 /* ReceiptEntry.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -98,6 +121,10 @@
 				A20000090000000000000009 /* ConfirmEntryView.swift */,
 				A20000100000000000000010 /* DashboardView.swift */,
 				A20000110000000000000011 /* HistoryView.swift */,
+				A20000180000000000000018 /* ScanPickerView.swift */,
+				A20000190000000000000019 /* ConfirmReceiptView.swift */,
+				A20000210000000000000021 /* ReceiptHistoryView.swift */,
+				A20000220000000000000022 /* SuggestionsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -188,7 +215,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000010000000000000001 /* WasteDiaryApp.swift in Sources */,
-				A10000020000000000000002 /* WasteEntry.swift in Sources */,
+				C22414F52FAA9F2A00C67688 /* GemmaInferenceService.swift in Sources */,
+				A10000150000000000000015 /* APIKeys.swift in Sources */,
+	A10000020000000000000002 /* WasteEntry.swift in Sources */,
 				A10000030000000000000003 /* WasteReason.swift in Sources */,
 				A10000040000000000000004 /* FoodCategory.swift in Sources */,
 				A10000050000000000000005 /* GemmaResult.swift in Sources */,
@@ -199,6 +228,13 @@
 				A10000100000000000000010 /* DashboardView.swift in Sources */,
 				A10000110000000000000011 /* HistoryView.swift in Sources */,
 				A10000120000000000000012 /* CameraManager.swift in Sources */,
+				A10000160000000000000016 /* ScanMode.swift in Sources */,
+				A10000170000000000000017 /* ReceiptResult.swift in Sources */,
+				A10000180000000000000018 /* ScanPickerView.swift in Sources */,
+				A10000190000000000000019 /* ConfirmReceiptView.swift in Sources */,
+				A10000200000000000000020 /* ReceiptEntry.swift in Sources */,
+				A10000210000000000000021 /* ReceiptHistoryView.swift in Sources */,
+				A10000220000000000000022 /* SuggestionsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

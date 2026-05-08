@@ -1,8 +1,9 @@
-import AVFoundation
+@preconcurrency import AVFoundation
 import SwiftUI
 import UIKit
 
 @Observable
+@MainActor
 final class CameraManager: NSObject {
     var capturedImage: UIImage?
     var isAuthorized = false
@@ -61,14 +62,16 @@ final class CameraManager: NSObject {
 
     func startSession() {
         guard !session.isRunning, isAuthorized, isCameraAvailable else { return }
-        Task.detached(priority: .userInitiated) { [session] in
+        let session = self.session
+        DispatchQueue.global(qos: .userInitiated).async {
             session.startRunning()
         }
     }
 
     func stopSession() {
         guard session.isRunning else { return }
-        Task.detached(priority: .userInitiated) { [session] in
+        let session = self.session
+        DispatchQueue.global(qos: .userInitiated).async {
             session.stopRunning()
         }
     }
@@ -90,22 +93,23 @@ final class CameraManager: NSObject {
     }
 }
 
-extension CameraManager: AVCapturePhotoCaptureDelegate {
+nonisolated extension CameraManager: AVCapturePhotoCaptureDelegate {
     func photoOutput(
         _ output: AVCapturePhotoOutput,
         didFinishProcessingPhoto photo: AVCapturePhoto,
         error: Error?
     ) {
-        guard let data = photo.fileDataRepresentation(),
-              let image = UIImage(data: data) else {
-            continuation?.resume(returning: nil)
+        let imageData = photo.fileDataRepresentation()
+        Task { @MainActor in
+            guard let data = imageData, let image = UIImage(data: data) else {
+                continuation?.resume(returning: nil)
+                continuation = nil
+                return
+            }
+            capturedImage = image
+            continuation?.resume(returning: image)
             continuation = nil
-            return
         }
-
-        capturedImage = image
-        continuation?.resume(returning: image)
-        continuation = nil
     }
 }
 

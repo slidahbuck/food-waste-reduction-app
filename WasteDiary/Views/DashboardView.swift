@@ -6,147 +6,184 @@ struct DashboardView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    weeklyBarChart
-                    weekComparison
-                    categoryBreakdown
+            ZStack {
+                Color(UIColor.systemGroupedBackground).ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 20) {
+                        sectionCard(
+                            title: "Spend vs. Waste",
+                            subtitle: "Estimated waste cost against grocery spend",
+                            seeMoreDestination: nil
+                        ) {
+                            let hasData = viewModel.weeklySpendVsWaste.contains(where: { $0.spent > 0 || $0.wasted > 0 })
+                            if hasData {
+                                Chart {
+                                    ForEach(viewModel.weeklySpendVsWaste, id: \.day) { item in
+                                        BarMark(
+                                            x: .value("Day", item.day, unit: .day),
+                                            y: .value("Amount", item.wasted)
+                                        )
+                                        .foregroundStyle(by: .value("Type", "Wasted"))
+                                        .cornerRadius(4)
+
+                                        BarMark(
+                                            x: .value("Day", item.day, unit: .day),
+                                            y: .value("Amount", item.spent)
+                                        )
+                                        .foregroundStyle(by: .value("Type", "Spent"))
+                                        .cornerRadius(4)
+                                    }
+                                }
+                                .chartForegroundStyleScale([
+                                "Wasted": Color.brown,
+                                "Spent": Color(red: 0.53, green: 0.63, blue: 0.55)
+                            ])
+                                .chartLegend(position: .top, alignment: .leading)
+                                .chartXAxis {
+                                    AxisMarks(values: .stride(by: .day)) {
+                                        AxisValueLabel(format: .dateTime.weekday(.abbreviated))
+                                        AxisGridLine()
+                                    }
+                                }
+                                .chartYAxis {
+                                    AxisMarks { value in
+                                        AxisValueLabel {
+                                            if let d = value.as(Double.self) {
+                                                Text("$\(Int(d))").font(.caption2)
+                                            }
+                                        }
+                                        AxisGridLine()
+                                    }
+                                }
+                                .frame(height: 220)
+                            } else {
+                                emptyPlaceholder(icon: "chart.bar.xaxis", message: "Scan receipts and log waste to see your comparison")
+                            }
+                        }
+
+                        sectionCard(
+                            title: "Food Waste",
+                            subtitle: String(format: "%.0f g this week", viewModel.thisWeekTotalGrams),
+                            seeMoreDestination: AnyView(HistoryView(viewModel: viewModel))
+                        ) {
+                            if viewModel.weeklyWasteByDay.contains(where: { $0.grams > 0 }) {
+                                Chart(viewModel.weeklyWasteByDay, id: \.day) { item in
+                                    BarMark(
+                                        x: .value("Day", item.day, unit: .day),
+                                        y: .value("Grams", item.grams)
+                                    )
+                                    .foregroundStyle(Color.brown)
+                                    .cornerRadius(5)
+                                }
+                                .chartXAxis {
+                                    AxisMarks(values: .stride(by: .day)) {
+                                        AxisValueLabel(format: .dateTime.weekday(.abbreviated))
+                                        AxisGridLine()
+                                    }
+                                }
+                                .chartYAxis {
+                                    AxisMarks { value in
+                                        AxisValueLabel {
+                                            if let g = value.as(Double.self) {
+                                                Text("\(Int(g))g").font(.caption2)
+                                            }
+                                        }
+                                        AxisGridLine()
+                                    }
+                                }
+                                .frame(height: 200)
+                            } else {
+                                emptyPlaceholder(icon: "trash", message: "No waste logged this week")
+                            }
+                        }
+
+                        sectionCard(
+                            title: "Grocery Spending",
+                            subtitle: String(format: "$%.2f this week", viewModel.thisWeekReceiptTotal),
+                            seeMoreDestination: AnyView(ReceiptHistoryView(viewModel: viewModel))
+                        ) {
+                            if viewModel.weeklyReceiptChartData.contains(where: { $0.total > 0 }) {
+                                Chart(viewModel.weeklyReceiptChartData, id: \.day) { item in
+                                    BarMark(
+                                        x: .value("Day", item.day, unit: .day),
+                                        y: .value("Spent", item.total)
+                                    )
+                                    .foregroundStyle(Color(red: 0.53, green: 0.63, blue: 0.55))
+                                    .cornerRadius(5)
+                                }
+                                .chartXAxis {
+                                    AxisMarks(values: .stride(by: .day)) {
+                                        AxisValueLabel(format: .dateTime.weekday(.abbreviated))
+                                        AxisGridLine()
+                                    }
+                                }
+                                .chartYAxis {
+                                    AxisMarks { value in
+                                        AxisValueLabel {
+                                            if let d = value.as(Double.self) {
+                                                Text("$\(Int(d))").font(.caption2)
+                                            }
+                                        }
+                                        AxisGridLine()
+                                    }
+                                }
+                                .frame(height: 200)
+                            } else {
+                                emptyPlaceholder(icon: "doc.text", message: "No receipts scanned this week")
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
                 }
-                .padding(.vertical)
             }
             .navigationTitle("Dashboard")
         }
     }
 
-    // MARK: - Weekly Bar Chart
+    // MARK: - Section Card
 
-    private var weeklyBarChart: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("This Week by Category")
-                .font(.headline)
-                .padding(.horizontal)
-
-            Chart(viewModel.weeklyChartData, id: \.category) { item in
-                BarMark(
-                    x: .value("Category", item.category.displayName),
-                    y: .value("Grams", item.grams)
-                )
-                .foregroundStyle(item.category.color)
-                .cornerRadius(6)
-            }
-            .chartYAxisLabel("Grams")
-            .frame(height: 220)
-            .padding(.horizontal)
-        }
-        .padding()
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal)
-    }
-
-    // MARK: - Week Comparison
-
-    private var weekComparison: some View {
-        VStack(spacing: 12) {
+    @ViewBuilder
+    private func sectionCard<Content: View>(
+        title: String,
+        subtitle: String,
+        seeMoreDestination: AnyView?,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("Week Comparison")
-                    .font(.headline)
-                Spacer()
-            }
-
-            HStack(spacing: 24) {
-                weekColumn(
-                    title: "This Week",
-                    grams: viewModel.thisWeekTotalGrams,
-                    isCurrent: true
-                )
-                weekColumn(
-                    title: "Last Week",
-                    grams: viewModel.lastWeekTotalGrams,
-                    isCurrent: false
-                )
-            }
-
-            if viewModel.lastWeekTotalGrams > 0 {
-                let change = viewModel.thisWeekTotalGrams - viewModel.lastWeekTotalGrams
-                let pct = (change / viewModel.lastWeekTotalGrams) * 100
-                HStack {
-                    Image(systemName: change <= 0 ? "arrow.down.circle.fill" : "arrow.up.circle.fill")
-                        .foregroundStyle(change <= 0 ? .green : .red)
-                    Text(String(format: "%.0f%% %@", abs(pct), change <= 0 ? "less waste" : "more waste"))
-                        .font(.subheadline)
-                        .foregroundStyle(change <= 0 ? .green : .red)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.headline)
+                    Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
                 }
-            }
-        }
-        .padding()
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal)
-    }
-
-    private func weekColumn(title: String, grams: Double, isCurrent: Bool) -> some View {
-        VStack(spacing: 4) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Text(String(format: "%.0f g", grams))
-                .font(.title2)
-                .fontWeight(.bold)
-                .foregroundStyle(isCurrent ? .primary : .secondary)
-            Text(String(format: "$%.2f", grams * 0.00882))
-                .font(.caption)
-                .foregroundStyle(.red)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    // MARK: - Category Breakdown
-
-    private var categoryBreakdown: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Breakdown by Category")
-                .font(.headline)
-
-            if viewModel.thisWeekByCategory.isEmpty {
-                HStack {
-                    Spacer()
-                    VStack(spacing: 8) {
-                        Image(systemName: "tray.fill")
-                            .font(.title)
-                            .foregroundStyle(.secondary)
-                        Text("No entries this week")
+                Spacer()
+                if let destination = seeMoreDestination {
+                    NavigationLink(destination: destination) {
+                        Text("See all")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
-                    .padding(.vertical, 24)
-                    Spacer()
-                }
-            } else {
-                ForEach(viewModel.thisWeekByCategory, id: \.category) { item in
-                    HStack {
-                        Image(systemName: item.category.icon)
-                            .foregroundStyle(item.category.color)
-                            .frame(width: 28)
-                        Text(item.category.displayName)
-                            .fontWeight(.medium)
-                        Spacer()
-                        VStack(alignment: .trailing) {
-                            Text(String(format: "%.0f g", item.grams))
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                            Text(String(format: "$%.2f", item.cost))
-                                .font(.caption)
-                                .foregroundStyle(.red)
-                        }
-                    }
-                    .padding(.vertical, 4)
                 }
             }
+            content()
         }
-        .padding()
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal)
+        .padding(16)
+        .background(Color(UIColor.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+    }
+
+    // MARK: - Empty Placeholder
+
+    private func emptyPlaceholder(icon: String, message: String) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.title)
+                .foregroundStyle(.tertiary)
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 120)
     }
 }

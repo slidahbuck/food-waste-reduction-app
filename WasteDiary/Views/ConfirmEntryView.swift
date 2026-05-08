@@ -126,6 +126,7 @@ struct ConfirmEntryView: View {
             confidence: gemmaResult.confidence,
             notes: notes.isEmpty ? nil : notes
         )
+        viewModel.selectedTab = 2
         dismiss()
     }
 }

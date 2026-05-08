@@ -7,39 +7,39 @@ struct WasteDiaryApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(for: WasteEntry.self)
+        .modelContainer(for: [WasteEntry.self, ReceiptEntry.self])
     }
 }
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel: WasteViewModel?
+    @State private var selectedTab = 0
 
     var body: some View {
         Group {
             if let viewModel {
-                TabView {
+                TabView(selection: $selectedTab) {
                     HomeView(viewModel: viewModel)
-                        .tabItem {
-                            Label("Home", systemImage: "house.fill")
-                        }
+                        .tabItem { Label("Home", systemImage: "house.fill") }
+                        .tag(0)
 
-                    CameraView(viewModel: viewModel)
-                        .tabItem {
-                            Label("Log", systemImage: "plus.circle.fill")
-                        }
+                    ScanPickerView(viewModel: viewModel)
+                        .tabItem { Label("Scan", systemImage: "camera.fill") }
+                        .tag(1)
 
                     DashboardView(viewModel: viewModel)
-                        .tabItem {
-                            Label("Dashboard", systemImage: "chart.bar.fill")
-                        }
+                        .tabItem { Label("Dashboard", systemImage: "chart.bar.fill") }
+                        .tag(2)
 
-                    HistoryView(viewModel: viewModel)
-                        .tabItem {
-                            Label("History", systemImage: "clock.fill")
-                        }
+                    SuggestionsView(viewModel: viewModel)
+                        .tabItem { Label("Tips", systemImage: "lightbulb.fill") }
+                        .tag(3)
                 }
                 .tint(.accent)
+                .onChange(of: viewModel.selectedTab) { _, tab in
+                    selectedTab = tab
+                }
             } else {
                 ProgressView("Loading...")
             }

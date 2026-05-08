@@ -1,21 +1,41 @@
 import Foundation
-import SwiftData
+@preconcurrency import SwiftData
 import SwiftUI
 import UIKit
 
+struct WasteSuggestion: Identifiable {
+    let id = UUID()
+    let title: String
+    let body: String
+    let icon: String
+}
+
 @Observable
+@MainActor
 final class WasteViewModel {
     private var modelContext: ModelContext
 
     var entries: [WasteEntry] = []
+    var receiptEntries: [ReceiptEntry] = []
     var isAnalyzing = false
+    var selectedTab: Int = 0
+    var suggestions: [WasteSuggestion] = []
+    var isLoadingSuggestions = false
+    var suggestionError: String? = nil
+    private var gemmaService: GemmaInferenceService?
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
+        do {
+            gemmaService = try GemmaInferenceService()
+        } catch {
+            print("[WasteViewModel] Gemma init error: \(error.localizedDescription)")
+        }
         fetchEntries()
+        fetchReceiptEntries()
     }
 
-    // MARK: - CRUD
+    // MARK: - Waste CRUD
 
     func addEntry(
         photoData: Data?,
@@ -45,10 +65,108 @@ final class WasteViewModel {
     }
 
     func fetchEntries() {
-        let descriptor = FetchDescriptor<WasteEntry>(
-            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
-        )
-        entries = (try? modelContext.fetch(descriptor)) ?? []
+        let descriptor = FetchDescriptor<WasteEntry>()
+        entries = ((try? modelContext.fetch(descriptor)) ?? [])
+            .sorted { $0.timestamp > $1.timestamp }
+    }
+
+    // MARK: - Receipt CRUD
+
+    func addReceiptEntry(storeName: String, items: [ReceiptItem], total: Double, confidence: Double, photoData: Data?) {
+        let itemsData = (try? JSONEncoder().encode(items)) ?? Data()
+        let entry = ReceiptEntry(storeName: storeName, itemsData: itemsData, total: total, confidence: confidence, photoData: photoData)
+        modelContext.insert(entry)
+        save()
+        fetchReceiptEntries()
+    }
+
+    func deleteReceiptEntry(_ entry: ReceiptEntry) {
+        modelContext.delete(entry)
+        save()
+        fetchReceiptEntries()
+    }
+
+    func fetchReceiptEntries() {
+        let descriptor = FetchDescriptor<ReceiptEntry>()
+        receiptEntries = ((try? modelContext.fetch(descriptor)) ?? [])
+            .sorted { $0.timestamp > $1.timestamp }
+    }
+
+    // MARK: - Receipt Analytics
+
+    var thisWeekReceiptEntries: [ReceiptEntry] {
+        let startOfWeek = Calendar.current.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date()
+        return receiptEntries.filter { $0.timestamp >= startOfWeek }
+    }
+
+    var thisWeekReceiptTotal: Double {
+        thisWeekReceiptEntries.reduce(0) { $0 + $1.total }
+    }
+
+    /// Percentage of grocery spend that was wasted this week (capped at 100%).
+    var thisWeekWasteRatio: Double {
+        guard thisWeekReceiptTotal > 0 else { return 0 }
+        return min(thisWeekTotalCost / thisWeekReceiptTotal, 1.0)
+    }
+
+    var weeklySpendVsWaste: [(day: Date, spent: Double, wasted: Double)] {
+        let calendar = Calendar.current
+        guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: Date()) else { return [] }
+        var result: [(day: Date, spent: Double, wasted: Double)] = []
+        var current = weekInterval.start
+        while current < weekInterval.end && current <= Date() {
+            let day = current
+            let nextDay = calendar.date(byAdding: .day, value: 1, to: day) ?? day
+            let spent = receiptEntries
+                .filter { $0.timestamp >= day && $0.timestamp < nextDay }
+                .reduce(0) { $0 + $1.total }
+            let wasted = entries
+                .filter { $0.timestamp >= day && $0.timestamp < nextDay }
+                .reduce(0) { $0 + $1.estimatedCost }
+            result.append((day: day, spent: spent, wasted: wasted))
+            current = nextDay
+        }
+        return result
+    }
+
+    var weeklyWasteByDay: [(day: Date, grams: Double)] {
+        let calendar = Calendar.current
+        guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: Date()) else { return [] }
+        var result: [(day: Date, grams: Double)] = []
+        var current = weekInterval.start
+        while current < weekInterval.end && current <= Date() {
+            let day = current
+            let nextDay = calendar.date(byAdding: .day, value: 1, to: day) ?? day
+            let dayGrams = entries
+                .filter { $0.timestamp >= day && $0.timestamp < nextDay }
+                .reduce(0) { $0 + $1.estimatedGrams }
+            result.append((day: day, grams: dayGrams))
+            current = nextDay
+        }
+        return result
+    }
+
+    var weeklyReceiptChartData: [(day: Date, total: Double)] {
+        let calendar = Calendar.current
+        guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: Date()) else { return [] }
+        var result: [(day: Date, total: Double)] = []
+        var current = weekInterval.start
+        while current < weekInterval.end && current <= Date() {
+            let day = current
+            let nextDay = calendar.date(byAdding: .day, value: 1, to: day) ?? day
+            let dayTotal = receiptEntries
+                .filter { $0.timestamp >= day && $0.timestamp < nextDay }
+                .reduce(0) { $0 + $1.total }
+            result.append((day: day, total: dayTotal))
+            current = nextDay
+        }
+        return result
+    }
+
+    var receiptEntriesGroupedByDay: [(date: Date, entries: [ReceiptEntry])] {
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: receiptEntries) { calendar.startOfDay(for: $0.timestamp) }
+        return grouped.sorted { $0.key > $1.key }.map { (date: $0.key, entries: $0.value) }
     }
 
     private func save() {
@@ -146,43 +264,84 @@ final class WasteViewModel {
             .map { (date: $0.key, entries: $0.value) }
     }
 
-    // MARK: - Mock Gemma Inference
+    // MARK: - Suggestions
 
-    /// Analyzes a food waste image using the on-device Gemma model.
-    /// // TODO: Replace with Gemma 4 Core ML inference
+    func loadSuggestions() async {
+        guard let service = gemmaService else {
+            suggestionError = "API key not configured. Add your key to APIKeys.swift."
+            return
+        }
+        isLoadingSuggestions = true
+        suggestionError = nil
+        defer { isLoadingSuggestions = false }
+
+        let topFoods = Dictionary(grouping: entries, by: { $0.foodType })
+            .sorted { $0.value.count > $1.value.count }
+            .prefix(3)
+            .map { $0.key }
+            .joined(separator: ", ")
+
+        let topReason = Dictionary(grouping: thisWeekEntries, by: { $0.wasteReason.displayName })
+            .max(by: { $0.value.count < $1.value.count })?.key ?? "various reasons"
+
+        let context = """
+        - Food wasted this week: \(String(format: "%.0f", thisWeekTotalGrams))g (est. $\(String(format: "%.2f", thisWeekTotalCost)))
+        - Grocery spending this week: $\(String(format: "%.2f", thisWeekReceiptTotal))
+        - Waste ratio: \(String(format: "%.0f", thisWeekWasteRatio * 100))% of grocery spend wasted
+        - Most wasted foods (all time): \(topFoods.isEmpty ? "none logged yet" : topFoods)
+        - Most common waste reason this week: \(topReason)
+        - Logging streak: \(loggingStreak) days
+        """
+
+        do {
+            suggestions = try await service.generateSuggestions(context: context)
+        } catch {
+            print("[WasteViewModel] Suggestions error: \(error.localizedDescription)")
+            suggestionError = error.localizedDescription
+        }
+    }
+
+    // MARK: - Gemma Inference
+
+    func analyzeReceipt(_ image: UIImage) async -> ReceiptResult {
+        isAnalyzing = true
+        defer { isAnalyzing = false }
+
+        guard let service = gemmaService else {
+            return ReceiptResult(storeName: "Model Not Loaded", items: [], total: 0, confidence: 0.0)
+        }
+
+        do {
+            return try await service.analyzeReceipt(image: image)
+        } catch {
+            print("[WasteViewModel] Receipt inference error: \(error.localizedDescription)")
+            return ReceiptResult(storeName: "Analysis Failed", items: [], total: 0, confidence: 0.0)
+        }
+    }
+
     func analyzeImage(_ image: UIImage) async -> GemmaResult {
         isAnalyzing = true
         defer { isAnalyzing = false }
 
-        // Simulate model inference latency
-        try? await Task.sleep(for: .seconds(1.2))
+        guard let service = gemmaService else {
+            return GemmaResult(
+                foodType: "Model Not Loaded",
+                estimatedGrams: 150,
+                wasteReason: .other,
+                confidence: 0.0
+            )
+        }
 
-        // TODO: Replace with Gemma 4 Core ML inference
-        // This mock returns randomized but realistic data for development.
-        let mockFoods: [(type: String, grams: Double, reason: WasteReason)] = [
-            ("Banana", 120, .spoiled),
-            ("Leftover Pasta", 250, .leftover),
-            ("Chicken Breast", 180, .expired),
-            ("Bread Slices", 90, .expired),
-            ("Salad Mix", 150, .spoiled),
-            ("Rice", 200, .overPrepared),
-            ("Avocado", 170, .spoiled),
-            ("Grilled Salmon", 220, .overCooked),
-            ("Yogurt", 175, .expired),
-            ("Pizza Slices", 300, .leftover),
-            ("Broccoli", 130, .spoiled),
-            ("Milk", 240, .expired),
-        ]
-
-        let mock = mockFoods.randomElement()!
-        let gramsVariation = Double.random(in: -30...30)
-        let confidence = Double.random(in: 0.72...0.96)
-
-        return GemmaResult(
-            foodType: mock.type,
-            estimatedGrams: max(50, mock.grams + gramsVariation),
-            wasteReason: mock.reason,
-            confidence: confidence
-        )
+        do {
+            return try await service.analyze(image: image)
+        } catch {
+            print("[WasteViewModel] Inference error: \(error.localizedDescription)")
+            return GemmaResult(
+                foodType: "Analysis Failed",
+                estimatedGrams: 150,
+                wasteReason: .other,
+                confidence: 0.0
+            )
+        }
     }
 }
